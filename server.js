@@ -107,6 +107,83 @@ app.get('/profile', verifyToken, (req, res) => {
   res.json({ message: 'You are authenticated', user: req.user });
 });
 
+app.post('/trips', verifyToken, async (req, res) => {
+  try {
+    const { name, base_currency } = req.body;
+    const userId = req.user.id;
+
+    if (!name || !base_currency) {
+      return res.status(400).json({ error: 'Trip name and base currency are required' });
+    }
+
+    const result = await pool.query(
+      'INSERT INTO trips (name, base_currency, created_by) VALUES ($1, $2, $3) RETURNING *',
+      [name, base_currency, userId]
+    );
+
+    const trip = result.rows[0];
+
+    await pool.query(
+      'INSERT INTO trip_members (trip_id, user_id) VALUES ($1, $2)',
+      [trip.id, userId]
+    );
+
+    res.status(201).json({ trip });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+app.post('/trips/:tripId/members', verifyToken, async (req, res) => {
+  try {
+    const { tripId } = req.params;
+    const { userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    const result = await pool.query(
+      'INSERT INTO trip_members (trip_id, user_id) VALUES ($1, $2) RETURNING *',
+      [tripId, userId]
+    );
+
+    res.status(201).json({ member: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+app.get('/trips/:tripId', verifyToken, async (req, res) => {
+  try {
+    const { tripId } = req.params;
+
+    const tripResult = await pool.query('SELECT * FROM trips WHERE id = $1', [tripId]);
+
+    if (tripResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Trip not found' });
+    }
+
+    const membersResult = await pool.query(
+      `SELECT users.id, users.name, users.email
+       FROM trip_members
+       JOIN users ON trip_members.user_id = users.id
+       WHERE trip_members.trip_id = $1`,
+      [tripId]
+    );
+
+    res.status(200).json({
+      trip: tripResult.rows[0],
+      members: membersResult.rows
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
