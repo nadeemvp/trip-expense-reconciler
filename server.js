@@ -184,6 +184,57 @@ app.get('/trips/:tripId', verifyToken, async (req, res) => {
   }
 });
 
+app.post('/trips/:tripId/expenses', verifyToken, async (req, res) => {
+  try {
+    const { tripId } = req.params;
+    const { description, amount, currency, category, expense_date, paid_by, splitBetween } = req.body;
+
+    if (!description || !amount || !currency || !expense_date || !paid_by || !splitBetween) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const expenseResult = await pool.query(
+      `INSERT INTO expenses (trip_id, paid_by, description, amount, currency, category, expense_date)
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      [tripId, paid_by, description, amount, currency, category, expense_date]
+    );
+
+    const expense = expenseResult.rows[0];
+
+    const shareAmount = (amount / splitBetween.length).toFixed(2);
+
+    const splitInserts = splitBetween.map(userId =>
+      pool.query(
+        'INSERT INTO expense_splits (expense_id, user_id, share_amount) VALUES ($1, $2, $3)',
+        [expense.id, userId, shareAmount]
+      )
+    );
+
+    await Promise.all(splitInserts);
+
+    res.status(201).json({ expense, splitBetween, shareAmount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+app.get('/trips/:tripId/expenses', verifyToken, async (req, res) => {
+  try {
+    const { tripId } = req.params;
+
+    const result = await pool.query(
+      'SELECT * FROM expenses WHERE trip_id = $1 ORDER BY expense_date DESC',
+      [tripId]
+    );
+
+    res.status(200).json({ expenses: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
