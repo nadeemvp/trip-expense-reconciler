@@ -5,6 +5,7 @@ const { hashPassword, comparePassword, generateToken } = require('./auth');
 const app = express();
 app.use(express.json());
 const PORT = 3000;
+const { getExchangeRate } = require('./fx');
 
 app.post('/register', async (req, res) => {
   try {
@@ -193,15 +194,24 @@ app.post('/trips/:tripId/expenses', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
+    const tripResult = await pool.query('SELECT base_currency FROM trips WHERE id = $1', [tripId]);
+    if (tripResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Trip not found' });
+    }
+    const baseCurrency = tripResult.rows[0].base_currency;
+
+    const rate = await getExchangeRate(currency, baseCurrency, expense_date);
+    const baseCurrencyAmount = (amount * rate).toFixed(2);
+
     const expenseResult = await pool.query(
-      `INSERT INTO expenses (trip_id, paid_by, description, amount, currency, category, expense_date)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [tripId, paid_by, description, amount, currency, category, expense_date]
+      `INSERT INTO expenses (trip_id, paid_by, description, amount, currency, category, expense_date, base_currency_amount, exchange_rate_used)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [tripId, paid_by, description, amount, currency, category, expense_date, baseCurrencyAmount, rate]
     );
 
     const expense = expenseResult.rows[0];
 
-    const shareAmount = (amount / splitBetween.length).toFixed(2);
+    const shareAmount = (baseCurrencyAmount / splitBetween.length).toFixed(2);
 
     const splitInserts = splitBetween.map(userId =>
       pool.query(
