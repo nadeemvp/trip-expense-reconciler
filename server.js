@@ -6,6 +6,7 @@ const app = express();
 app.use(express.json());
 const PORT = 3000;
 const { getExchangeRate } = require('./fx');
+const { calculateSettlement } = require('./settlement');
 
 app.post('/register', async (req, res) => {
   try {
@@ -239,6 +240,87 @@ app.get('/trips/:tripId/expenses', verifyToken, async (req, res) => {
     );
 
     res.status(200).json({ expenses: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+app.get('/trips/:tripId/balances', verifyToken, async (req, res) => {
+  try {
+    const { tripId } = req.params;
+
+    const paidResult = await pool.query(
+      `SELECT paid_by AS user_id, SUM(base_currency_amount) AS total_paid
+       FROM expenses WHERE trip_id = $1 GROUP BY paid_by`,
+      [tripId]
+    );
+
+    const owedResult = await pool.query(
+      `SELECT es.user_id, SUM(es.share_amount) AS total_owed
+       FROM expense_splits es
+       JOIN expenses e ON es.expense_id = e.id
+       WHERE e.trip_id = $1 GROUP BY es.user_id`,
+      [tripId]
+    );
+
+    const balances = {};
+
+    paidResult.rows.forEach(row => {
+      balances[row.user_id] = { paid: parseFloat(row.total_paid), owed: 0 };
+    });
+
+    owedResult.rows.forEach(row => {
+      if (!balances[row.user_id]) balances[row.user_id] = { paid: 0, owed: 0 };
+      balances[row.user_id].owed = parseFloat(row.total_owed);
+    });
+
+    const netBalances = Object.entries(balances).map(([userId, b]) => ({
+      user_id: parseInt(userId),
+      net: parseFloat((b.paid - b.owed).toFixed(2))
+    }));
+
+    res.status(200).json({ balances: netBalances });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+app.get('/trips/:tripId/settlement', verifyToken, async (req, res) => {
+  try {
+    const { tripId } = req.params;
+
+    const paidResult = await pool.query(
+      `SELECT paid_by AS user_id, SUM(base_currency_amount) AS total_paid
+       FROM expenses WHERE trip_id = $1 GROUP BY paid_by`,
+      [tripId]
+    );
+    const owedResult = await pool.query(
+      `SELECT es.user_id, SUM(es.share_amount) AS total_owed
+       FROM expense_splits es
+       JOIN expenses e ON es.expense_id = e.id
+       WHERE e.trip_id = $1 GROUP BY es.user_id`,
+      [tripId]
+    );
+
+    const balances = {};
+    paidResult.rows.forEach(row => {
+      balances[row.user_id] = { paid: parseFloat(row.total_paid), owed: 0 };
+    });
+    owedResult.rows.forEach(row => {
+      if (!balances[row.user_id]) balances[row.user_id] = { paid: 0, owed: 0 };
+      balances[row.user_id].owed = parseFloat(row.total_owed);
+    });
+
+    const netBalances = Object.entries(balances).map(([userId, b]) => ({
+      user_id: parseInt(userId),
+      net: parseFloat((b.paid - b.owed).toFixed(2))
+    }));
+
+    const settlement = calculateSettlement(netBalances);
+
+    res.status(200).json({ balances: netBalances, settlement });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong' });
