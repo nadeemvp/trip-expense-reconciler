@@ -7,6 +7,8 @@ app.use(express.json());
 const PORT = 3000;
 const { getExchangeRate } = require('./fx');
 const { calculateSettlement } = require('./settlement');
+const cors = require('cors');
+app.use(cors());
 
 app.post('/register', async (req, res) => {
   try {
