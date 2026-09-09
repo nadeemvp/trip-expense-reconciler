@@ -9,6 +9,7 @@ const { getExchangeRate } = require('./fx');
 const { calculateSettlement } = require('./settlement');
 const cors = require('cors');
 app.use(cors());
+const { isTripAdmin } = require('./permissions');
 
 app.post('/register', async (req, res) => {
   try {
@@ -128,8 +129,8 @@ app.post('/trips', verifyToken, async (req, res) => {
     const trip = result.rows[0];
 
     await pool.query(
-      'INSERT INTO trip_members (trip_id, user_id) VALUES ($1, $2)',
-      [trip.id, userId]
+    'INSERT INTO trip_members (trip_id, user_id, role) VALUES ($1, $2, $3)',
+    [trip.id, userId, 'admin']
     );
 
     res.status(201).json({ trip });
@@ -143,6 +144,12 @@ app.post('/trips/:tripId/members', verifyToken, async (req, res) => {
   try {
     const { tripId } = req.params;
     const { userId } = req.body;
+    const requesterId = req.user.id;
+
+    const requesterIsAdmin = await isTripAdmin(tripId, requesterId);
+    if (!requesterIsAdmin) {
+      return res.status(403).json({ error: 'Only trip admins can add members' });
+    }
 
     if (!userId) {
       return res.status(400).json({ error: 'userId is required' });
@@ -159,6 +166,7 @@ app.post('/trips/:tripId/members', verifyToken, async (req, res) => {
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
+
 
 app.get('/trips/:tripId', verifyToken, async (req, res) => {
   try {
