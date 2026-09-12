@@ -17,21 +17,20 @@ function Dashboard() {
     fetchTrips();
   }, []);
 
-  async function fetchTrips() {
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:3000/profile', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      // For now, just show that we fetched the user
-      console.log('User:', response.data);
-      setLoading(false);
-    } catch (err) {
-      setError('Failed to load trips');
-      setLoading(false);
-    }
+ async function fetchTrips() {
+  try {
+    setLoading(true);
+    const token = localStorage.getItem('token');
+    const response = await axios.get('http://localhost:3000/trips', {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    setTrips(response.data.trips || []);
+    setLoading(false);
+  } catch (err) {
+    setError('Failed to load trips');
+    setLoading(false);
   }
+}
 
   async function handleCreateTrip(e) {
     e.preventDefault();

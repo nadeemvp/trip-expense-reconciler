@@ -114,24 +114,32 @@ app.get('/profile', verifyToken, (req, res) => {
 
 app.post('/trips', verifyToken, async (req, res) => {
   try {
-    const { name, base_currency } = req.body;
     const userId = req.user.id;
+    const { name, base_currency, trip_type, monthly_budget } = req.body;
 
     if (!name || !base_currency) {
-      return res.status(400).json({ error: 'Trip name and base currency are required' });
+      return res.status(400).json({ error: 'name and base_currency are required' });
     }
 
+    const type = trip_type || 'group';
+    const budget = monthly_budget || null;
+
     const result = await pool.query(
-      'INSERT INTO trips (name, base_currency, created_by) VALUES ($1, $2, $3) RETURNING *',
-      [name, base_currency, userId]
+      `INSERT INTO trips (name, base_currency, created_by, trip_type, monthly_budget)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [name, base_currency, userId, type, budget]
     );
 
     const trip = result.rows[0];
 
-    await pool.query(
-    'INSERT INTO trip_members (trip_id, user_id, role) VALUES ($1, $2, $3)',
-    [trip.id, userId, 'admin']
-    );
+    // Only add as member for group trips; personal trips are solo
+    if (type === 'group') {
+      await pool.query(
+        'INSERT INTO trip_members (trip_id, user_id, role) VALUES ($1, $2, $3)',
+        [trip.id, userId, 'admin']
+      );
+    }
 
     res.status(201).json({ trip });
   } catch (err) {
@@ -331,6 +339,129 @@ app.get('/trips/:tripId/settlement', verifyToken, async (req, res) => {
     const settlement = calculateSettlement(netBalances);
 
     res.status(200).json({ balances: netBalances, settlement });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+
+app.get('/trips', verifyToken, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    
+    const result = await pool.query(
+      `SELECT DISTINCT t.* FROM trips t
+       JOIN trip_members tm ON t.id = tm.trip_id
+       WHERE tm.user_id = $1
+       ORDER BY t.created_at DESC`,
+      [userId]
+    );
+
+    res.status(200).json({ trips: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+app.post('/trips/:tripId/recurring-expenses', verifyToken, async (req, res) => {
+  try {
+    const { tripId } = req.params;
+    const { description, amount, currency, category, day_of_month } = req.body;
+
+    if (!description || !amount || !currency || !day_of_month) {
+      return res.status(400).json({ error: 'All fields required' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO recurring_expenses (trip_id, description, amount, currency, category, day_of_month)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [tripId, description, amount, currency, category, day_of_month]
+    );
+
+    res.status(201).json({ recurring_expense: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong' });
+  }
+});
+
+app.get('/trips/:tripId/process-recurring', verifyToken, async (req, res) => {
+  try {
+    const { tripId } = req.params;
+    const today = new Date();
+    const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    const recurringResult = await pool.query(
+      `SELECT * FROM recurring_expenses WHERE trip_id = $1 AND is_active = true`,
+      [tripId]
+    );
+
+    const tripResult = await pool.query(
+      `SELECT base_currency FROM trips WHERE id = $1`,
+      [tripId]
+    );
+
+    if (tripResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Trip not found' });
+    }
+
+    const baseCurrency = tripResult.rows[0].base_currency;
+    const createdExpenses = [];
+
+    for (const recurring of recurringResult.rows) {
+      const alreadyGenerated = await pool.query(
+        `SELECT id FROM recurring_expense_log 
+         WHERE recurring_expense_id = $1 AND generated_for_month = $2`,
+        [recurring.id, currentMonth]
+      );
+
+      if (alreadyGenerated.rows.length === 0) {
+        const userId = req.user.id;
+        
+        // Get exchange rate and convert
+        let exchangeRate = 1;
+        if (recurring.currency !== baseCurrency) {
+          const rateResult = await pool.query(
+            `SELECT rate FROM exchange_rates 
+             WHERE base_currency = $1 AND quote_currency = $2 
+             ORDER BY fetched_at DESC LIMIT 1`,
+            [recurring.currency, baseCurrency]
+          );
+          if (rateResult.rows.length > 0) {
+            exchangeRate = rateResult.rows[0].rate;
+          }
+        }
+
+        const baseAmount = parseFloat((recurring.amount * exchangeRate).toFixed(2));
+
+        const expenseResult = await pool.query(
+          `INSERT INTO expenses (trip_id, paid_by, description, amount, currency, category, 
+            expense_date, base_currency_amount, exchange_rate_used)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           RETURNING id`,
+          [tripId, userId, recurring.description, recurring.amount, recurring.currency, 
+           recurring.category, currentMonth, baseAmount, exchangeRate]
+        );
+
+        await pool.query(
+          `INSERT INTO expense_splits (expense_id, user_id, share_amount) VALUES ($1, $2, $3)`,
+          [expenseResult.rows[0].id, userId, baseAmount]
+        );
+
+        await pool.query(
+          `INSERT INTO recurring_expense_log (recurring_expense_id, generated_for_month, expense_id)
+           VALUES ($1, $2, $3)`,
+          [recurring.id, currentMonth, expenseResult.rows[0].id]
+        );
+
+        createdExpenses.push(expenseResult.rows[0].id);
+      }
+    }
+
+    res.status(200).json({ created: createdExpenses.length });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong' });
