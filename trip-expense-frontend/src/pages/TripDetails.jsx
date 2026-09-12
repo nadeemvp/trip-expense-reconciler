@@ -119,173 +119,281 @@ function TripDetails() {
     }
   }
 
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p style={{ color: 'red' }}>{error}</p>;
-  if (!trip) return <p>Trip not found</p>;
+  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}><p>Loading...</p></div>;
+  if (error) return <div style={{ color: '#d32f2f', textAlign: 'center', padding: '20px' }}>{error}</div>;
+  if (!trip) return <div style={{ color: '#999', textAlign: 'center', padding: '20px' }}>Trip not found</div>;
 
   return (
-    <div style={{ maxWidth: '900px', margin: '20px auto', fontFamily: 'sans-serif' }}>
-      <button onClick={() => navigate('/dashboard')} style={{ marginBottom: '20px', padding: '8px 16px', cursor: 'pointer' }}>
-        ← Back to Trips
-      </button>
-
-      <h1>{trip.name}</h1>
-      <p><strong>Base Currency:</strong> {trip.base_currency}</p>
-      <p><strong>Members:</strong> {trip.members?.length || 0}</p>
-
-      <hr style={{ margin: '30px 0' }} />
-
-      <h2>Expenses ({expenses.length})</h2>
-
-      {expenses.length === 0 ? (
-        <p>No expenses logged yet.</p>
-      ) : (
-        <div style={{ marginBottom: '20px' }}>
-          {expenses.map(expense => (
-            <div key={expense.id} style={{ border: '1px solid #ddd', padding: '12px', marginBottom: '10px', borderRadius: '5px' }}>
-              <strong>{expense.description}</strong> — {expense.amount} {expense.currency}
-              <br />
-              <small>Paid by user {expense.paid_by} on {expense.expense_date}</small>
-              <br />
-              <small>Base currency amount: {expense.base_currency_amount} {trip.base_currency}</small>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <button 
-        onClick={() => setShowExpenseForm(!showExpenseForm)}
-        style={{ padding: '10px 20px', marginBottom: '15px', cursor: 'pointer', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '5px' }}
-      >
-        {showExpenseForm ? 'Cancel' : 'Log Expense'}
-      </button>
-
-      {showExpenseForm && (
-        <form onSubmit={handleLogExpense} style={{ border: '1px solid #ddd', padding: '15px', borderRadius: '5px' }}>
-          <div style={{ marginBottom: '10px' }}>
-            <label>Description</label><br />
-            <input
-              type="text"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              required
-              style={{ width: '100%', padding: '8px' }}
-              placeholder="e.g., Hotel booking"
-            />
-          </div>
-
-          <div style={{ marginBottom: '10px' }}>
-            <label>Amount</label><br />
-            <input
-              type="number"
-              step="0.01"
-              value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              required
-              style={{ width: '100%', padding: '8px' }}
-              placeholder="50"
-            />
-          </div>
-
-          <div style={{ marginBottom: '10px' }}>
-            <label>Currency</label><br />
-            <select
-              value={formData.currency}
-              onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-              style={{ width: '100%', padding: '8px' }}
-            >
-              <option>INR</option>
-              <option>USD</option>
-              <option>EUR</option>
-              <option>GBP</option>
-              <option>JPY</option>
-            </select>
-          </div>
-
-          <div style={{ marginBottom: '10px' }}>
-            <label>Date</label><br />
-            <input
-              type="date"
-              value={formData.expense_date}
-              onChange={(e) => setFormData({ ...formData, expense_date: e.target.value })}
-              required
-              style={{ width: '100%', padding: '8px' }}
-            />
-          </div>
-
-          <div style={{ marginBottom: '10px' }}>
-            <label>Category</label><br />
-            <select
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              style={{ width: '100%', padding: '8px' }}
-            >
-              <option value="accommodation">Accommodation</option>
-              <option value="food">Food</option>
-              <option value="transport">Transport</option>
-              <option value="activities">Activities</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-
-          <div style={{ marginBottom: '10px' }}>
-            <label>Paid By (User ID)</label><br />
-            <input
-              type="number"
-              value={formData.paid_by}
-              onChange={(e) => setFormData({ ...formData, paid_by: e.target.value })}
-              style={{ width: '100%', padding: '8px' }}
-              placeholder="Leave blank to default to first member"
-            />
-          </div>
-
-          <div style={{ marginBottom: '10px' }}>
-            <label>Split Among (select members):</label><br />
-            {trip.members && trip.members.length > 0 ? (
-              trip.members.map(member => (
-                <div key={member.id} style={{ marginBottom: '8px' }}>
-                  <input
-                    type="checkbox"
-                    id={`member-${member.id}`}
-                    checked={formData.splitBetween.includes(member.id)}
-                    onChange={() => handleSplitChange(member.id)}
-                  />
-                  <label htmlFor={`member-${member.id}`} style={{ marginLeft: '8px' }}>
-                    {member.name}
-                  </label>
-                </div>
-              ))
-            ) : (
-              <p style={{ color: '#999' }}>No members in this trip</p>
-            )}
-          </div>
-
-          <button type="submit" style={{ padding: '10px 20px', cursor: 'pointer', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '5px' }}>
-            Log Expense
+    <div style={{ minHeight: '100vh', background: '#f5f5f5', fontFamily: 'Arial, sans-serif', padding: '20px' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+        
+        {/* Header */}
+        <div style={{ marginBottom: '30px' }}>
+          <button 
+            onClick={() => navigate('/dashboard')}
+            style={{
+              background: '#667eea',
+              color: 'white',
+              border: 'none',
+              padding: '10px 20px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              marginBottom: '15px'
+            }}
+          >
+            ← Back to Trips
           </button>
-        </form>
-      )}
-
-      <hr style={{ margin: '30px 0' }} />
-
-      <h2>Settlement Plan</h2>
-      <button 
-        onClick={() => fetchSettlement()}
-        style={{ padding: '10px 20px', marginBottom: '15px', cursor: 'pointer', backgroundColor: '#ff9800', color: 'white', border: 'none', borderRadius: '5px' }}
-      >
-        Calculate Settlement
-      </button>
-
-      {settlement.length > 0 && (
-        <div style={{ backgroundColor: '#f0f0f0', padding: '15px', borderRadius: '5px' }}>
-          <h3>Who Pays Whom:</h3>
-          {settlement.map((trans, idx) => (
-            <div key={idx} style={{ marginBottom: '10px', padding: '10px', backgroundColor: 'white', borderRadius: '5px' }}>
-              <strong>User {trans.from} pays User {trans.to}: {trans.amount.toFixed(2)} {trip.base_currency}</strong>
-            </div>
-          ))}
+          
+          <h1 style={{ fontSize: '32px', fontWeight: 'bold', color: '#333', margin: '10px 0' }}>{trip.name}</h1>
+          <div style={{ display: 'flex', gap: '30px', color: '#666', fontSize: '15px' }}>
+            <p><strong>Base Currency:</strong> {trip.base_currency}</p>
+            <p><strong>Members:</strong> {trip.members?.length || 0}</p>
+          </div>
         </div>
-      )}
+
+        <hr style={{ border: 'none', borderTop: '2px solid #ddd', margin: '30px 0' }} />
+
+        {/* Expenses Section */}
+        <div style={{ marginBottom: '40px' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#333', marginBottom: '20px' }}>
+            Expenses ({expenses.length})
+          </h2>
+
+          {expenses.length === 0 ? (
+            <p style={{ color: '#999', fontSize: '15px' }}>No expenses logged yet.</p>
+          ) : (
+            <div style={{ marginBottom: '20px' }}>
+              {expenses.map(expense => (
+                <div key={expense.id} style={{
+                  background: 'white',
+                  border: '1px solid #ddd',
+                  padding: '15px',
+                  marginBottom: '10px',
+                  borderRadius: '5px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}>
+                  <p style={{ fontSize: '16px', fontWeight: 'bold', color: '#333', margin: '0 0 8px 0' }}>
+                    {expense.description}
+                  </p>
+                  <p style={{ color: '#666', fontSize: '14px', margin: '5px 0' }}>
+                    💰 {expense.amount} {expense.currency}
+                  </p>
+                  <p style={{ color: '#999', fontSize: '13px', margin: '5px 0' }}>
+                    Paid by user {expense.paid_by} on {new Date(expense.expense_date).toLocaleDateString()}
+                  </p>
+                  <p style={{ color: '#667eea', fontSize: '13px', fontWeight: 'bold', margin: '5px 0' }}>
+                    Base currency: {expense.base_currency_amount} {trip.base_currency}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button 
+            onClick={() => setShowExpenseForm(!showExpenseForm)}
+            style={{
+              background: '#4caf50',
+              color: 'white',
+              border: 'none',
+              padding: '12px 24px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '15px',
+              fontWeight: 'bold',
+              transition: 'background 0.3s'
+            }}
+            onMouseEnter={(e) => e.target.style.background = '#45a049'}
+            onMouseLeave={(e) => e.target.style.background = '#4caf50'}
+          >
+            {showExpenseForm ? '✕ Cancel' : '+ Log Expense'}
+          </button>
+
+          {/* Expense Form */}
+          {showExpenseForm && (
+            <div style={{
+              background: 'white',
+              border: '1px solid #ddd',
+              padding: '20px',
+              borderRadius: '5px',
+              marginTop: '20px'
+            }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#333', marginBottom: '15px' }}>New Expense</h3>
+              <form onSubmit={handleLogExpense}>
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', fontWeight: 'bold', color: '#333', marginBottom: '5px' }}>Description</label>
+                  <input
+                    type="text"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    required
+                    style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '5px', boxSizing: 'border-box', fontSize: '14px' }}
+                    placeholder="e.g., Hotel booking"
+                  />
+                </div>
+
+                <div style={{ marginBottom: '15px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontWeight: 'bold', color: '#333', marginBottom: '5px' }}>Amount</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      required
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '5px', boxSizing: 'border-box', fontSize: '14px' }}
+                      placeholder="50"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontWeight: 'bold', color: '#333', marginBottom: '5px' }}>Currency</label>
+                    <select
+                      value={formData.currency}
+                      onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                      style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '5px', boxSizing: 'border-box', fontSize: '14px' }}
+                    >
+                      <option>INR</option>
+                      <option>USD</option>
+                      <option>EUR</option>
+                      <option>GBP</option>
+                      <option>JPY</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', fontWeight: 'bold', color: '#333', marginBottom: '5px' }}>Date</label>
+                  <input
+                    type="date"
+                    value={formData.expense_date}
+                    onChange={(e) => setFormData({ ...formData, expense_date: e.target.value })}
+                    required
+                    style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '5px', boxSizing: 'border-box', fontSize: '14px' }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', fontWeight: 'bold', color: '#333', marginBottom: '5px' }}>Category</label>
+                  <select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '5px', boxSizing: 'border-box', fontSize: '14px' }}
+                  >
+                    <option value="accommodation">Accommodation</option>
+                    <option value="food">Food</option>
+                    <option value="transport">Transport</option>
+                    <option value="activities">Activities</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', fontWeight: 'bold', color: '#333', marginBottom: '5px' }}>Paid By (User ID)</label>
+                  <input
+                    type="number"
+                    value={formData.paid_by}
+                    onChange={(e) => setFormData({ ...formData, paid_by: e.target.value })}
+                    style={{ width: '100%', padding: '10px', border: '1px solid #ddd', borderRadius: '5px', boxSizing: 'border-box', fontSize: '14px' }}
+                    placeholder="Leave blank to default"
+                  />
+                </div>
+
+                <div style={{ marginBottom: '20px', background: '#f9f9f9', padding: '15px', borderRadius: '5px' }}>
+                  <label style={{ display: 'block', fontWeight: 'bold', color: '#333', marginBottom: '10px' }}>Split Among:</label>
+                  {trip.members && trip.members.length > 0 ? (
+                    trip.members.map(member => (
+                      <div key={member.id} style={{ marginBottom: '8px' }}>
+                        <input
+                          type="checkbox"
+                          id={`member-${member.id}`}
+                          checked={formData.splitBetween.includes(member.id)}
+                          onChange={() => handleSplitChange(member.id)}
+                          style={{ marginRight: '8px', cursor: 'pointer' }}
+                        />
+                        <label htmlFor={`member-${member.id}`} style={{ cursor: 'pointer', color: '#333' }}>
+                          {member.name}
+                        </label>
+                      </div>
+                    ))
+                  ) : (
+                    <p style={{ color: '#999' }}>No members in this trip</p>
+                  )}
+                </div>
+
+                <button 
+                  type="submit"
+                  style={{
+                    width: '100%',
+                    background: '#667eea',
+                    color: 'white',
+                    border: 'none',
+                    padding: '12px',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    fontSize: '15px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Log Expense
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+
+        <hr style={{ border: 'none', borderTop: '2px solid #ddd', margin: '30px 0' }} />
+
+        {/* Settlement Section */}
+        <div>
+          <h2 style={{ fontSize: '24px', fontWeight: 'bold', color: '#333', marginBottom: '20px' }}>Settlement Plan</h2>
+          
+          <button 
+            onClick={() => fetchSettlement()}
+            style={{
+              background: '#ff9800',
+              color: 'white',
+              border: 'none',
+              padding: '12px 24px',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '15px',
+              fontWeight: 'bold',
+              marginBottom: '20px'
+            }}
+            onMouseEnter={(e) => e.target.style.background = '#e68900'}
+            onMouseLeave={(e) => e.target.style.background = '#ff9800'}
+          >
+            Calculate Settlement
+          </button>
+
+          {settlement.length > 0 && (
+            <div style={{
+              background: '#fff3e0',
+              border: '2px solid #ff9800',
+              padding: '20px',
+              borderRadius: '5px'
+            }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#333', marginBottom: '15px' }}>Who Pays Whom:</h3>
+              {settlement.map((trans, idx) => (
+                <div key={idx} style={{
+                  background: 'white',
+                  padding: '12px',
+                  marginBottom: '10px',
+                  borderRadius: '5px',
+                  borderLeft: '4px solid #ff9800'
+                }}>
+                  <p style={{ color: '#333', fontSize: '15px', margin: 0 }}>
+                    <strong>User {trans.from}</strong> pays <strong>User {trans.to}</strong>
+                  </p>
+                  <p style={{ color: '#ff9800', fontSize: '16px', fontWeight: 'bold', margin: '5px 0 0 0' }}>
+                    {trans.amount.toFixed(2)} {trip.base_currency}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
