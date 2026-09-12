@@ -8,22 +8,24 @@ function Login() {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setError('');
+async function handleSubmit(e) {
+  e.preventDefault();
+  setError('');
 
-    try {
-      const response = await axios.post('http://localhost:3000/login', {
-        email,
-        password
-      });
+  try {
+    const response = await axios.post('http://localhost:3000/login', {
+      email,
+      password
+    });
 
-      localStorage.setItem('token', response.data.token);
-      navigate('/dashboard');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Something went wrong');
-    }
+    localStorage.setItem('token', response.data.token);
+    localStorage.setItem('userName', response.data.name);
+    localStorage.setItem('userId', response.data.id);
+    navigate('/dashboard');
+  } catch (err) {
+    setError(err.response?.data?.error || 'Something went wrong');
   }
+}
 
   return (
     <div style={{

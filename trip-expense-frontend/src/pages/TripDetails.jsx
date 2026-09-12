@@ -54,6 +54,12 @@ function TripDetails() {
     }
   }
 
+  function getMemberName(memberId) {
+    if (!trip || !trip.members) return `User ${memberId}`;
+    const member = trip.members.find(m => m.id === memberId);
+    return member ? member.name : `User ${memberId}`;
+  }
+
   function handleSplitChange(userId) {
     if (formData.splitBetween.includes(userId)) {
       setFormData({
@@ -180,11 +186,19 @@ function TripDetails() {
                     💰 {expense.amount} {expense.currency}
                   </p>
                   <p style={{ color: '#999', fontSize: '13px', margin: '5px 0' }}>
-                    Paid by user {expense.paid_by} on {new Date(expense.expense_date).toLocaleDateString()}
+                    Paid by <strong>{getMemberName(expense.paid_by)}</strong> on {new Date(expense.expense_date).toLocaleDateString()}
                   </p>
                   <p style={{ color: '#667eea', fontSize: '13px', fontWeight: 'bold', margin: '5px 0' }}>
                     Base currency: {expense.base_currency_amount} {trip.base_currency}
                   </p>
+                  <div style={{ background: '#f5f5f5', padding: '10px', borderRadius: '3px', marginTop: '10px', fontSize: '13px', color: '#666' }}>
+                    <p style={{ margin: '5px 0' }}>
+                      <strong>Category:</strong> {expense.category.charAt(0).toUpperCase() + expense.category.slice(1)}
+                    </p>
+                    <p style={{ margin: '5px 0' }}>
+                      <strong>Split:</strong> Equally among members
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -383,7 +397,7 @@ function TripDetails() {
                   borderLeft: '4px solid #ff9800'
                 }}>
                   <p style={{ color: '#333', fontSize: '15px', margin: 0 }}>
-                    <strong>User {trans.from}</strong> pays <strong>User {trans.to}</strong>
+                    <strong>{getMemberName(trans.from)}</strong> pays <strong>{getMemberName(trans.to)}</strong>
                   </p>
                   <p style={{ color: '#ff9800', fontSize: '16px', fontWeight: 'bold', margin: '5px 0 0 0' }}>
                     {trans.amount.toFixed(2)} {trip.base_currency}

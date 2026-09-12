@@ -15,26 +15,22 @@ app.post('/register', async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Name, email, and password are required' });
+    const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+    if (existingUser.rows.length > 0) {
+      return res.status(409).json({ error: 'Email already registered' });
     }
 
     const hashedPassword = await hashPassword(password);
-
     const result = await pool.query(
       'INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email',
       [name, email, hashedPassword]
     );
 
-    const newUser = result.rows[0];
-    const token = generateToken(newUser);
-
-    res.status(201).json({ user: newUser, token });
+    const user = result.rows[0];
+    const token = generateToken(user.id);
+    res.status(201).json({ token, name: user.name, id: user.id });
   } catch (err) {
     console.error(err);
-    if (err.code === '23505') {
-      return res.status(409).json({ error: 'Email already registered' });
-    }
     res.status(500).json({ error: 'Something went wrong' });
   }
 });
@@ -42,33 +38,21 @@ app.post('/register', async (req, res) => {
 app.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
-    }
-
-    const result = await pool.query(
-      'SELECT * FROM users WHERE email = $1',
-      [email]
-    );
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     const user = result.rows[0];
-    const passwordMatches = await comparePassword(password, user.password_hash);
+    const isValidPassword = await comparePassword(password, user.password_hash);
 
-    if (!passwordMatches) {
+    if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
-    const token = generateToken(user);
-
-    res.status(200).json({
-      user: { id: user.id, name: user.name, email: user.email },
-      token
-    });
+    const token = generateToken(user.id);
+    res.status(200).json({ token, name: user.name, id: user.id });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong' });
