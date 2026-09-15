@@ -10,9 +10,9 @@ async function comparePassword(plainPassword, hashedPassword) {
   return await bcrypt.compare(plainPassword, hashedPassword);
 }
 
-function generateToken(user) {
+function generateToken(userId) {
   return jwt.sign(
-    { id: user.id, email: user.email },
+    { id: userId },  // ← THIS LINE MUST INCLUDE THE USER ID
     process.env.JWT_SECRET,
     { expiresIn: '7d' }
   );

@@ -76,20 +76,20 @@ app.get('/test-db', async (req, res) => {
 const jwt = require('jsonwebtoken');
 
 function verifyToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
+  const token = req.headers['authorization']?.split(' ')[1];
+  
   if (!token) {
     return res.status(401).json({ error: 'No token provided' });
   }
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
-    }
-    req.user = decoded;
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;  
+    console.log('Token decoded, user:', req.user); // Debug line
     next();
-  });
+  } catch (err) {
+    res.status(401).json({ error: 'Invalid token' });
+  }
 }
 
 app.get('/profile', verifyToken, (req, res) => {
@@ -333,15 +333,14 @@ app.get('/trips/:tripId/settlement', verifyToken, async (req, res) => {
 app.get('/trips', verifyToken, async (req, res) => {
   try {
     const userId = req.user.id;
+    console.log('Fetching trips for user ID:', userId);  // ADD THIS LINE
     
     const result = await pool.query(
-      `SELECT DISTINCT t.* FROM trips t
-       JOIN trip_members tm ON t.id = tm.trip_id
-       WHERE tm.user_id = $1
-       ORDER BY t.created_at DESC`,
+      'SELECT * FROM trips WHERE created_by = $1 OR id IN (SELECT trip_id FROM trip_members WHERE user_id = $1)',
       [userId]
     );
-
+    
+    console.log('Found trips:', result.rows);  // ADD THIS LINE
     res.status(200).json({ trips: result.rows });
   } catch (err) {
     console.error(err);
